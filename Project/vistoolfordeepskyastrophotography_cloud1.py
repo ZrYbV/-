@@ -408,7 +408,7 @@ def create_figure(df, lat_str, lon_str, lat, lon, start_date, end_date, total_da
     ax.set_xlim(noon_ticks[0], noon_ticks[-1])
     ax_top.set_xlim(noon_ticks[0], noon_ticks[-1])
 
-    ax.set_title('Best Time（Night∩(No Moon∪Illumination≤25%)）')
+    ax.set_title('Best Time(Night∩(No Moon∪Illumination≤25%))')
     ax.grid(True, linestyle='-', alpha=0.6)
     ax.legend(loc='upper left')
 
@@ -416,7 +416,7 @@ def create_figure(df, lat_str, lon_str, lat, lon, start_date, end_date, total_da
         if s[-1] in 'NSEW':
             return s[:-1] + '°' + s[-1]
         return s + '°'
-    info_text = f"Position点: {format_coord(lat_str)} {format_coord(lon_str)}"
+    info_text = f"Position: {format_coord(lat_str)} {format_coord(lon_str)}"
     ax.text(0.02, 0.02, info_text, transform=ax.transAxes, fontsize=9,
             verticalalignment='bottom', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
