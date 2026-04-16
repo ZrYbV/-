@@ -245,13 +245,13 @@ def create_figure(df, lat_str, lon_str, lat, lon, start_date, end_date, total_da
     y_ms_offset = y_ms - y_offset
 
     fig, ax = plt.subplots(figsize=(12, 7))
-    ax.plot(x_sr_s, y_sr_s_plot, 'o-', color='gold', label='日出', markersize=3, linewidth=1.5)
-    ax.plot(x_ss_s, y_ss_s_plot, 'o-', color='orange', label='日落', markersize=3, linewidth=1.5)
-    ax.plot(x_dawn_s, y_dawn_s_plot, '--', color='purple', label='天文晨光始', linewidth=1.2)
-    ax.plot(x_dusk_s, y_dusk_s_plot, '--', color='magenta', label='天文昏影终', linewidth=1.2)
+    ax.plot(x_sr_s, y_sr_s_plot, 'o-', color='gold', label='Sunrise', markersize=3, linewidth=1.5)
+    ax.plot(x_ss_s, y_ss_s_plot, 'o-', color='orange', label='Sunset', markersize=3, linewidth=1.5)
+    ax.plot(x_dawn_s, y_dawn_s_plot, '--', color='purple', label='Dawn', linewidth=1.2)
+    ax.plot(x_dusk_s, y_dusk_s_plot, '--', color='magenta', label='Dusk', linewidth=1.2)
 
-    plot_discontinuous(ax, x_mr, y_mr_offset, 'skyblue', '月出')
-    plot_discontinuous(ax, x_ms, y_ms_offset, 'navy', '月落')
+    plot_discontinuous(ax, x_mr, y_mr_offset, 'skyblue', 'Moonrise')
+    plot_discontinuous(ax, x_ms, y_ms_offset, 'navy', 'Moonset')
 
     # ========== 高亮区域 ==========
     date_range_full = pd.date_range(start=start_date, end=end_date, freq='D')
@@ -348,13 +348,13 @@ def create_figure(df, lat_str, lon_str, lat, lon, start_date, end_date, total_da
                 ax.add_patch(Rectangle((x_left, low), width, high - low,
                                        facecolor=green_color, alpha=alpha, edgecolor='none'))
                 if not green_label_added:
-                    ax.plot([], [], color=green_color, linewidth=10, label='无月最佳', alpha=alpha)
+                    ax.plot([], [], color=green_color, linewidth=10, label='No Moon', alpha=alpha)
                     green_label_added = True
             for low, high in shift_segs(moon_in_night_segs, y_offset):
                 ax.add_patch(Rectangle((x_left, low), width, high - low,
                                        facecolor=yellow_color, alpha=alpha, edgecolor='none'))
                 if not yellow_label_added:
-                    ax.plot([], [], color=yellow_color, linewidth=10, label='有月低照度', alpha=alpha)
+                    ax.plot([], [], color=yellow_color, linewidth=10, label='Low Illumination', alpha=alpha)
                     yellow_label_added = True
             all_highlight_segs = no_moon_segs + moon_in_night_segs
         else:
@@ -362,7 +362,7 @@ def create_figure(df, lat_str, lon_str, lat, lon, start_date, end_date, total_da
                 ax.add_patch(Rectangle((x_left, low), width, high - low,
                                        facecolor=green_color, alpha=alpha, edgecolor='none'))
                 if not green_label_added:
-                    ax.plot([], [], color=green_color, linewidth=10, label='无月最佳', alpha=alpha)
+                    ax.plot([], [], color=green_color, linewidth=10, label='No Moon', alpha=alpha)
                     green_label_added = True
             all_highlight_segs = no_moon_segs
 
@@ -379,7 +379,7 @@ def create_figure(df, lat_str, lon_str, lat, lon, start_date, end_date, total_da
     yticklabels = ['12:00'] + [f'{h:02d}:00' for h in range(13, 24)] + ['00:00'] + [f'{h:02d}:00' for h in range(1, 13)]
     ax.set_yticks(yticks)
     ax.set_yticklabels(yticklabels)
-    ax.set_ylabel(f'时间 (UTC{target_tz:+d})')
+    ax.set_ylabel(f'Time (UTC{target_tz:+d})')
 
     noon_ticks = mdates.date2num(date_range) + 0
     if total_days <= 62:
@@ -393,7 +393,7 @@ def create_figure(df, lat_str, lon_str, lat, lon, start_date, end_date, total_da
 
     start_year = start_date.year
     end_year = end_date.year
-    year_label = f"日期 ({start_year})" if start_year == end_year else f"日期 ({start_year}-{end_year})"
+    year_label = f"Date ({start_year})" if start_year == end_year else f"Date ({start_year}-{end_year})"
     ax.set_xticks(selected_ticks)
     bottom_labels = [date_range[i].strftime('%m-%d') for i in tick_indices]
     ax.set_xticklabels(bottom_labels, rotation=45)
@@ -408,7 +408,7 @@ def create_figure(df, lat_str, lon_str, lat, lon, start_date, end_date, total_da
     ax.set_xlim(noon_ticks[0], noon_ticks[-1])
     ax_top.set_xlim(noon_ticks[0], noon_ticks[-1])
 
-    ax.set_title('深空摄影最佳时段（夜间∩(无月期∪照度≤25%)）及天文曙暮光')
+    ax.set_title('Best Time（Night∩(No Moon∪Illumination≤25%)）')
     ax.grid(True, linestyle='-', alpha=0.6)
     ax.legend(loc='upper left')
 
@@ -416,7 +416,7 @@ def create_figure(df, lat_str, lon_str, lat, lon, start_date, end_date, total_da
         if s[-1] in 'NSEW':
             return s[:-1] + '°' + s[-1]
         return s + '°'
-    info_text = f"观测点: {format_coord(lat_str)} {format_coord(lon_str)}"
+    info_text = f"Position点: {format_coord(lat_str)} {format_coord(lon_str)}"
     ax.text(0.02, 0.02, info_text, transform=ax.transAxes, fontsize=9,
             verticalalignment='bottom', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
