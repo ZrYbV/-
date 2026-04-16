@@ -10,24 +10,14 @@ import sys
 import os
 from collections import defaultdict
 from matplotlib.patches import Rectangle
-
-# 地图与地理编码相关
 import folium
-from folium.plugins import ClickForMarker
 from streamlit_folium import st_folium
 from geopy.geocoders import Nominatim
+from datetime import datetime, date
 
-# ========== 云端中文适配 ==========
-plt.rcParams['font.sans-serif'] = ['WenQuanYi Micro Hei']
-plt.rcParams['axes.unicode_minus'] = False
-
-# ================= 页面配置 =================
-st.set_page_config(page_title="深空摄影最佳时段", layout="wide")
-st.title("🌌 深空摄影最佳时段可视化工具")
-st.markdown("输入观测地点与日期范围，生成无月光干扰的黑暗时段图表。")
-
-# ================= 初始化地理编码器 =================
-geolocator = Nominatim(user_agent="DeepSkyAstroTool/1.0 (your_email@example.com)")
+# 1. 初始化地理编码器 (为了在Streamlit Cloud上使用，请使用一个自定义的user_agent)
+# 注意：请将 'your_app_name_here' 替换为您应用的名称。
+geolocator = Nominatim(user_agent="deepskyvistool")
 
 def geocode_location(location_name):
     """根据输入的地名，返回其经纬度和显示名称。"""
@@ -44,7 +34,12 @@ def geocode_location(location_name):
         st.error(f"地理编码出错: {e}")
         return None, None, None
 
-# ================= 辅助函数（与原始脚本一致） =================
+# ================= 页面配置 =================
+st.set_page_config(page_title="深空摄影最佳时段", layout="wide")
+st.title("🌌 深空摄影最佳时段可视化工具")
+st.markdown("输入观测地点与日期范围，生成无月光干扰的黑暗时段图表。")
+
+# ================= 辅助函数 =================
 def parse_latitude(lat_str):
     lat_str = lat_str.strip().upper()
     if lat_str.endswith('N'):
@@ -62,12 +57,6 @@ def parse_longitude(lon_str):
         return -float(lon_str[:-1])
     else:
         return float(lon_str)
-
-def format_coord_for_display(lat, lon):
-    """将浮点经纬度转换为带方向的字符串，如 40.15N, 116.27E"""
-    lat_dir = 'N' if lat >= 0 else 'S'
-    lon_dir = 'E' if lon >= 0 else 'W'
-    return f"{abs(lat):.4f}{lat_dir}", f"{abs(lon):.4f}{lon_dir}"
 
 def local_time_to_plot_value(dt):
     hour = dt.hour
@@ -92,6 +81,7 @@ def calc_timezone_offset(lon_str):
     lon_value = float(num_part)
     if direction == 'W':
         lon_value = -lon_value
+    # 经度每15度一个时区，四舍五入
     tz_offset = int(round(lon_value / 15.0))
     return tz_offset
 
@@ -106,6 +96,7 @@ def generate_astronomical_data(lat, lon, start_date, end_date, timezone_hours=8)
     while current_date <= end_date:
         observer.date = current_date.strftime('%Y/%m/%d') + ' 12:00:00'
 
+        # --- 日出、日落 ---
         try:
             sunrise_utc = observer.previous_rising(ephem.Sun())
             sunset_utc = observer.next_setting(ephem.Sun())
@@ -120,6 +111,7 @@ def generate_astronomical_data(lat, lon, start_date, end_date, timezone_hours=8)
             sunrise_val = sunset_val = float('nan')
             sunrise_date = sunset_date = current_date
 
+        # --- 月出、月落 ---
         moon = ephem.Moon()
         try:
             moonrise_utc = observer.previous_rising(moon)
@@ -135,6 +127,7 @@ def generate_astronomical_data(lat, lon, start_date, end_date, timezone_hours=8)
             moonrise_val = moonset_val = float('nan')
             moonrise_date = moonset_date = current_date
 
+        # --- 天文曙暮光 ---
         observer.horizon = '-18'
         try:
             dawn_utc = observer.previous_rising(ephem.Sun(), use_center=True)
@@ -151,6 +144,7 @@ def generate_astronomical_data(lat, lon, start_date, end_date, timezone_hours=8)
             dawn_date = dusk_date = current_date
         observer.horizon = '0'
 
+        # --- 月相照度 ---
         moon.compute(observer)
         illumination = moon.moon_phase * 100.0
 
@@ -221,6 +215,7 @@ def compute_data(lat_str, lon_str, start_date_str, end_date_str, beijing_time):
     end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
     total_days = (end_date - start_date).days + 1
 
+    # 时区偏移计算
     if beijing_time:
         timezone_hours = 8
     else:
@@ -268,14 +263,15 @@ def create_figure(df, lat_str, lon_str, lat, lon, start_date, end_date, total_da
     y_ms_offset = y_ms - y_offset
 
     fig, ax = plt.subplots(figsize=(12, 7))
-    ax.plot(x_sr_s, y_sr_s_plot, 'o-', color='gold', label='日出', markersize=3, linewidth=1.5)
-    ax.plot(x_ss_s, y_ss_s_plot, 'o-', color='orange', label='日落', markersize=3, linewidth=1.5)
-    ax.plot(x_dawn_s, y_dawn_s_plot, '--', color='purple', label='天文晨光始', linewidth=1.2)
-    ax.plot(x_dusk_s, y_dusk_s_plot, '--', color='magenta', label='天文昏影终', linewidth=1.2)
+    ax.plot(x_sr_s, y_sr_s_plot, 'o-', color='gold', label='Sunrise', markersize=3, linewidth=1.5)
+    ax.plot(x_ss_s, y_ss_s_plot, 'o-', color='orange', label='Sunset', markersize=3, linewidth=1.5)
+    ax.plot(x_dawn_s, y_dawn_s_plot, '--', color='purple', label='Dawn', linewidth=1.2)
+    ax.plot(x_dusk_s, y_dusk_s_plot, '--', color='magenta', label='Dusk', linewidth=1.2)
 
-    plot_discontinuous(ax, x_mr, y_mr_offset, 'skyblue', '月出')
-    plot_discontinuous(ax, x_ms, y_ms_offset, 'navy', '月落')
+    plot_discontinuous(ax, x_mr, y_mr_offset, 'skyblue', 'Moonrise')
+    plot_discontinuous(ax, x_ms, y_ms_offset, 'navy', 'Moonset')
 
+    # ========== 高亮区域 ==========
     date_range_full = pd.date_range(start=start_date, end=end_date, freq='D')
     date_list = date_range_full.date.tolist()
     noon_nums = mdates.date2num(date_range_full + pd.Timedelta(hours=12))
@@ -370,13 +366,13 @@ def create_figure(df, lat_str, lon_str, lat, lon, start_date, end_date, total_da
                 ax.add_patch(Rectangle((x_left, low), width, high - low,
                                        facecolor=green_color, alpha=alpha, edgecolor='none'))
                 if not green_label_added:
-                    ax.plot([], [], color=green_color, linewidth=10, label='无月最佳', alpha=alpha)
+                    ax.plot([], [], color=green_color, linewidth=10, label='No Moon', alpha=alpha)
                     green_label_added = True
             for low, high in shift_segs(moon_in_night_segs, y_offset):
                 ax.add_patch(Rectangle((x_left, low), width, high - low,
                                        facecolor=yellow_color, alpha=alpha, edgecolor='none'))
                 if not yellow_label_added:
-                    ax.plot([], [], color=yellow_color, linewidth=10, label='有月低照度', alpha=alpha)
+                    ax.plot([], [], color=yellow_color, linewidth=10, label='Low Illumination', alpha=alpha)
                     yellow_label_added = True
             all_highlight_segs = no_moon_segs + moon_in_night_segs
         else:
@@ -384,7 +380,7 @@ def create_figure(df, lat_str, lon_str, lat, lon, start_date, end_date, total_da
                 ax.add_patch(Rectangle((x_left, low), width, high - low,
                                        facecolor=green_color, alpha=alpha, edgecolor='none'))
                 if not green_label_added:
-                    ax.plot([], [], color=green_color, linewidth=10, label='无月最佳', alpha=alpha)
+                    ax.plot([], [], color=green_color, linewidth=10, label='No Moon', alpha=alpha)
                     green_label_added = True
             all_highlight_segs = no_moon_segs
 
@@ -395,12 +391,13 @@ def create_figure(df, lat_str, lon_str, lat, lon, start_date, end_date, total_da
                     bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.7),
                     zorder=10)
 
+    # ========== 坐标轴设置 ==========
     ax.set_ylim(-12, 12)
     yticks = list(range(-12, 13))
     yticklabels = ['12:00'] + [f'{h:02d}:00' for h in range(13, 24)] + ['00:00'] + [f'{h:02d}:00' for h in range(1, 13)]
     ax.set_yticks(yticks)
     ax.set_yticklabels(yticklabels)
-    ax.set_ylabel(f'时间 (UTC{target_tz:+d})')
+    ax.set_ylabel(f'Time (UTC{target_tz:+d})')
 
     noon_ticks = mdates.date2num(date_range) + 0
     if total_days <= 62:
@@ -414,7 +411,7 @@ def create_figure(df, lat_str, lon_str, lat, lon, start_date, end_date, total_da
 
     start_year = start_date.year
     end_year = end_date.year
-    year_label = f"日期 ({start_year})" if start_year == end_year else f"日期 ({start_year}-{end_year})"
+    year_label = f"Date ({start_year})" if start_year == end_year else f"Date ({start_year}-{end_year})"
     ax.set_xticks(selected_ticks)
     bottom_labels = [date_range[i].strftime('%m-%d') for i in tick_indices]
     ax.set_xticklabels(bottom_labels, rotation=45)
@@ -429,7 +426,7 @@ def create_figure(df, lat_str, lon_str, lat, lon, start_date, end_date, total_da
     ax.set_xlim(noon_ticks[0], noon_ticks[-1])
     ax_top.set_xlim(noon_ticks[0], noon_ticks[-1])
 
-    ax.set_title('深空摄影最佳时段（夜间∩(无月期∪照度≤25%)）及天文曙暮光')
+    ax.set_title('Best Time(Night∩(No Moon∪Illumination≤25%))')
     ax.grid(True, linestyle='-', alpha=0.6)
     ax.legend(loc='upper left')
 
@@ -437,7 +434,7 @@ def create_figure(df, lat_str, lon_str, lat, lon, start_date, end_date, total_da
         if s[-1] in 'NSEW':
             return s[:-1] + '°' + s[-1]
         return s + '°'
-    info_text = f"观测点: {format_coord(lat_str)} {format_coord(lon_str)}"
+    info_text = f"Position: {format_coord(lat_str)} {format_coord(lon_str)}"
     ax.text(0.02, 0.02, info_text, transform=ax.transAxes, fontsize=9,
             verticalalignment='bottom', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
@@ -447,96 +444,79 @@ def create_figure(df, lat_str, lon_str, lat, lon, start_date, end_date, total_da
 # ================= Streamlit 侧边栏输入 =================
 st.sidebar.header("📍 观测参数设置")
 
-# 选点方式选择
-input_mode = st.sidebar.radio(
-    "选择坐标输入方式",
-    ["手动输入经纬度", "地图选点 + 地名搜索"],
-    index=1  # 默认使用地图模式
-)
+# 保留原有的手动输入经纬度功能
+lat_str = st.sidebar.text_input("纬度 (如 40.15N, 28S)", value="40.15N")
+lon_str = st.sidebar.text_input("经度 (如 116.27E, 18W)", value="116.27E")
+st.sidebar.markdown("---")
 
-# 初始化 session_state 中的经纬度值
-if 'lat_str' not in st.session_state:
-    st.session_state['lat_str'] = "40.15N"
-if 'lon_str' not in st.session_state:
-    st.session_state['lon_str'] = "116.27E"
+# 2. 添加地名搜索功能
+st.sidebar.subheader("🔍 或搜索地名")
+location_input = st.sidebar.text_input("输入地名 (例如: Beijing, 故宫, 纽约)", value="")
 
-if input_mode == "手动输入经纬度":
-    lat_str = st.sidebar.text_input("纬度 (如 40.15N, 28S)", value=st.session_state['lat_str'], key="manual_lat")
-    lon_str = st.sidebar.text_input("经度 (如 116.27E, 18W)", value=st.session_state['lon_str'], key="manual_lon")
-    # 更新 session_state
-    st.session_state['lat_str'] = lat_str
-    st.session_state['lon_str'] = lon_str
+if st.sidebar.button("搜索并应用"):
+    lat, lon, addr = geocode_location(location_input)
+    if lat is not None and lon is not None:
+        st.sidebar.success(f"已找到: {addr}")
+        # 在这里，您可以将获取到的经纬度格式化为您应用需要的字符串格式
+        # 例如，将纬度格式化为 "40.15N" 或 "40.15S"
+        lat_dir = 'N' if lat >= 0 else 'S'
+        lon_dir = 'E' if lon >= 0 else 'W'
+        # 更新session_state，用于在页面上显示和后续使用
+        st.session_state['selected_lat'] = f"{abs(lat):.4f}{lat_dir}"
+        st.session_state['selected_lon'] = f"{abs(lon):.4f}{lon_dir}"
+        st.rerun() # 重新运行以更新输入框的值
 
-else:  # 地图选点 + 地名搜索
-    st.sidebar.subheader("🔍 地名搜索")
-    location_input = st.sidebar.text_input("输入地名 (例如: Beijing, 故宫, 纽约)", key="location_search")
-    if st.sidebar.button("搜索并定位"):
-        lat, lon, addr = geocode_location(location_input)
-        if lat is not None and lon is not None:
-            st.sidebar.success(f"已找到: {addr}")
-            lat_str, lon_str = format_coord_for_display(lat, lon)
-            st.session_state['lat_str'] = lat_str
-            st.session_state['lon_str'] = lon_str
-            # 更新地图中心
-            st.session_state['map_center'] = (lat, lon)
-            st.rerun()
+# 使用session_state中的值来更新经纬度输入框的默认值
+# 这样可以实现点击搜索后，输入框自动填充
+if 'selected_lat' in st.session_state:
+    lat_str = st.sidebar.text_input("纬度", value=st.session_state['selected_lat'], key='lat_input')
+if 'selected_lon' in st.session_state:
+    lon_str = st.sidebar.text_input("经度", value=st.session_state['selected_lon'], key='lon_input')
 
-    # 显示当前经纬度
-    st.sidebar.markdown(f"**当前坐标**: {st.session_state['lat_str']}, {st.session_state['lon_str']}")
+st.sidebar.markdown("---")
 
-    # 地图显示
-    st.sidebar.subheader("🌍 点击地图选点")
-    default_lat = parse_latitude(st.session_state['lat_str'])
-    default_lon = parse_longitude(st.session_state['lon_str'])
-    if 'map_center' in st.session_state:
-        center_lat, center_lon = st.session_state['map_center']
-    else:
-        center_lat, center_lon = default_lat, default_lon
+'''
+# 3. 添加交互式地图
+st.sidebar.subheader("🌍 或在地图上选点")
+# 默认地图中心可以设置为北京，或者根据搜索到的地点动态调整
+default_lat, default_lon = 39.9042, 116.4074 # 北京天安门
 
-    # 创建 Folium 地图，使用高德地图图源
-    m = folium.Map(
-        location=[center_lat, center_lon],
-        zoom_start=5,
-        tiles='http://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
-        attr='高德地图'
-    )
-    # 添加点击标记插件
-    m.add_child(ClickForMarker())
+# 如果已经通过地名搜索得到了坐标，就用那个坐标作为地图中心
+if 'selected_lat' in st.session_state and 'selected_lon' in st.session_state:
+    # 这里需要将格式如 "40.15N" 的字符串转回浮点数
+    lat_val = float(st.session_state['selected_lat'][:-1])
+    if st.session_state['selected_lat'][-1] == 'S':
+        lat_val = -lat_val
+    lon_val = float(st.session_state['selected_lon'][:-1])
+    if st.session_state['selected_lon'][-1] == 'W':
+        lon_val = -lon_val
+    default_lat, default_lon = lat_val, lon_val
 
-    # 在地图上添加一个静态标记显示当前位置
-    folium.Marker(
-        [default_lat, default_lon],
-        popup="当前观测点",
-        icon=folium.Icon(color='red', icon='info-sign')
-    ).add_to(m)
+m = folium.Map(location=[default_lat, default_lon], zoom_start=5)
+m.add_child(folium.LatLngPopup())
 
-    # 渲染地图
-    map_data = st_folium(m, height=350, width=700, key="map")
+# 显示地图并获取点击事件
+map_data = st_folium(m, height=350, width=700)
 
-    # 处理地图点击
-    if map_data and map_data['last_clicked']:
-        clicked_lat = map_data['last_clicked']['lat']
-        clicked_lon = map_data['last_clicked']['lng']
-        lat_str, lon_str = format_coord_for_display(clicked_lat, clicked_lon)
-        st.session_state['lat_str'] = lat_str
-        st.session_state['lon_str'] = lon_str
-        st.session_state['map_center'] = (clicked_lat, clicked_lon)
-        st.rerun()
+# 处理地图点击事件
+if map_data and map_data['last_clicked']:
+    clicked_lat = map_data['last_clicked']['lat']
+    clicked_lon = map_data['last_clicked']['lng']
+    lat_dir = 'N' if clicked_lat >= 0 else 'S'
+    lon_dir = 'E' if clicked_lon >= 0 else 'W'
+    st.session_state['selected_lat'] = f"{abs(clicked_lat):.4f}{lat_dir}"
+    st.session_state['selected_lon'] = f"{abs(clicked_lon):.4f}{lon_dir}"
+    st.rerun()
+'''
 
-    # 最终使用的经纬度从 session_state 获取
-    lat_str = st.session_state['lat_str']
-    lon_str = st.session_state['lon_str']
-
-# 日期输入
+# 日期、时区等其他输入保持不变
 col1, col2 = st.sidebar.columns(2)
 with col1:
     start_date_str = st.date_input("起始日期", value=date(2026, 4, 1)).strftime('%Y-%m-%d')
 with col2:
     end_date_str = st.date_input("结束日期", value=date(2026, 5, 1)).strftime('%Y-%m-%d')
-
 beijing_time = st.sidebar.checkbox("强制使用东八区 (UTC+8)", value=False)
 
-# 生成图表按钮
 if st.sidebar.button("🚀 生成图表", type="primary"):
     try:
         lat = parse_latitude(lat_str)
@@ -575,18 +555,20 @@ if st.sidebar.button("🚀 生成图表", type="primary"):
             file_name=f"astro_{start_date_str}_to_{end_date_str}.csv",
             mime="text/csv"
         )
+
         st.success("图表生成完毕！")
 else:
     st.info("👈 请在左侧设置参数并点击“生成图表”")
 
-# 页面说明
 st.markdown("""
 ---
 ### 📌 特别注意
+
 - 观测地位于中国境内时请勾选【强制东八区】以显示北京时间
 - 当观测地纬度过高时（＞61.5°）会显示异常
 - 当观测地距东八区过远时有概率显示异常，此时请不要勾选【强制东八区】
 - 更多详情请见【使用说明】
+
 ---
 """)
 
@@ -608,8 +590,8 @@ with st.sidebar.expander("📖 使用说明", expanded=False):
     - **数据导出**：可下载 CSV 文件，包含所有原始计算数据。
 
     ### 📝 输入参数说明
-    - **选点方式**：支持手动输入经纬度或通过地图选点/地名搜索。
-    - **纬度/经度**：格式如 `40.15N`、`116.27E`，支持带方向后缀。
+    - **纬度**：格式如 `40.15N` (北纬) 或 `28S` (南纬)，支持小数点。
+    - **经度**：格式如 `116.27E` (东经) 或 `18W` (西经)。
     - **日期范围**：起止日期，跨度不超过 366 天。
     - **强制东八区**：勾选后所有时间按 UTC+8 显示；不勾选则根据经度自动计算本地时区。
 
