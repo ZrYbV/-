@@ -8,14 +8,10 @@ from scipy.interpolate import UnivariateSpline, interp1d
 from datetime import datetime, timedelta, date
 import sys
 import os
-import urllib.request
 from collections import defaultdict
 from matplotlib.patches import Rectangle
-import matplotlib.font_manager as fm
 
 # ========== 云端中文适配（使用系统字体） ==========
-import matplotlib.pyplot as plt
-
 # 直接使用 packages.txt 安装的文泉驿微米黑字体
 plt.rcParams['font.sans-serif'] = ['WenQuanYi Micro Hei']
 plt.rcParams['axes.unicode_minus'] = False
