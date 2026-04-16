@@ -13,48 +13,12 @@ from collections import defaultdict
 from matplotlib.patches import Rectangle
 import matplotlib.font_manager as fm
 
-# ========== 云端中文适配（增强版） ==========
-import matplotlib
-import matplotlib.font_manager as fm
+# ========== 云端中文适配（使用系统字体） ==========
+import matplotlib.pyplot as plt
 
-FONT_URL = "https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf"
-FONT_PATH = "/tmp/NotoSansSC-Regular.otf"
-
-def setup_chinese_font():
-    # 1. 尝试下载字体
-    if not os.path.exists(FONT_PATH):
-        try:
-            urllib.request.urlretrieve(FONT_URL, FONT_PATH)
-        except Exception as e:
-            st.warning(f"字体下载失败：{e}")
-
-    # 2. 注册字体并强制刷新缓存
-    if os.path.exists(FONT_PATH):
-        # 将字体添加到 matplotlib 字体管理器
-        fm.fontManager.addfont(FONT_PATH)
-        # 强制重建字体缓存（关键步骤）
-        fm._rebuild()
-        plt.rcParams['font.sans-serif'] = ['Noto Sans SC']
-        plt.rcParams['axes.unicode_minus'] = False
-        return True
-    else:
-        # 3. 回退方案：使用 Linux 系统自带的中文字体（如果有）
-        system_fonts = [
-            'WenQuanYi Micro Hei',
-            'Noto Sans CJK SC',
-            'DejaVu Sans'
-        ]
-        for font in system_fonts:
-            if font in [f.name for f in fm.fontManager.ttflist]:
-                plt.rcParams['font.sans-serif'] = [font]
-                plt.rcParams['axes.unicode_minus'] = False
-                return True
-        # 最终回退
-        plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
-        plt.rcParams['axes.unicode_minus'] = False
-        return False
-
-setup_chinese_font()
+# 直接使用 packages.txt 安装的文泉驿微米黑字体
+plt.rcParams['font.sans-serif'] = ['WenQuanYi Micro Hei']
+plt.rcParams['axes.unicode_minus'] = False
 
 # ================= 页面配置 =================
 st.set_page_config(page_title="深空摄影最佳时段", layout="wide")
